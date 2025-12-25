@@ -1,6 +1,14 @@
 # Solugen Assignment — Retrieval (RAG) Component
 
-This repo is set up to help you build the **retrieval pipeline** required by the assignment.
+This repo implements the **retrieval component** of a RAG system: take a user query, retrieve the most relevant text chunks from a small dataset, and show them in a minimal UI.
+
+What this repo does:
+- Builds an index by chunking documents, creating **OpenAI embeddings**, and storing them in **ChromaDB**
+- Retrieves **top‑K** chunks for a query, with an optional **similarity threshold**
+- Shows retrieved chunks + similarity scores in a simple browser UI
+
+What this repo intentionally does **not** do:
+- No LLM / chatbot / answer generation (the UI only displays retrieved context)
 
 ## Python setup (uv) + FastAPI
 
@@ -25,7 +33,7 @@ uv sync
 ### 3) Run the API
 
 ```bash
-uv run uvicorn solugen_assignment.api.main:app --reload --port 8000
+uv run uvicorn solugen_assignment.api.main:app --reload --port 8001
 ```
 
 ### 4) Environment variables
@@ -39,31 +47,37 @@ Optional:
 - `OPENAI_EMBEDDING_MODEL` (default: `text-embedding-3-small`)
 - `CHROMA_PERSIST_DIR` (default: `chroma_db`)
 - `CHROMA_COLLECTION` (default: `bbc_politics_chunks`)
+- `PROCESSED_DATASET_JSONL` (default: `data/processed/bbc_politics_news_under29900.jsonl`)
 
 Test:
 
 ```bash
-curl -s http://127.0.0.1:8000/health
-curl -s http://127.0.0.1:8000/docs
+curl -s http://127.0.0.1:8001/health
+curl -s http://127.0.0.1:8001/docs
 ```
 
-Search (retrieval; requires index built):
+### 5) Build the index (embeddings) once
+
+You can do this from the UI (button) or via API:
 
 ```bash
-curl -s -X POST http://127.0.0.1:8000/search \
+curl -s -X POST http://127.0.0.1:8001/index/build
+```
+
+### 6) Search (retrieval)
+
+Search requires the index to be built first:
+
+```bash
+curl -s -X POST http://127.0.0.1:8001/search \
   -H 'Content-Type: application/json' \
   -d '{"query":"maternity pay rise", "top_k": 5}'
 ```
 
-Search (embedding + Chroma chunk retrieval):
-
-> Requires `OPENAI_API_KEY` and the embedding/vector-db deps installed.
-> Build the index once (embeddings + Chroma persistence), then search.
+With a similarity threshold:
 
 ```bash
-curl -s -X POST http://127.0.0.1:8000/index/build
-
-curl -s -X POST http://127.0.0.1:8000/search \
+curl -s -X POST http://127.0.0.1:8001/search \
   -H 'Content-Type: application/json' \
   -d '{"query":"maternity pay rise", "top_k": 5, "similarity_threshold": 0.2}'
 ```
@@ -75,9 +89,19 @@ Notes:
 - To verify embeddings exist in the vector DB, call:
 
 ```bash
-curl -s http://127.0.0.1:8000/index/status
-curl -s http://127.0.0.1:8000/index/sample
+curl -s http://127.0.0.1:8001/index/status
+curl -s http://127.0.0.1:8001/index/sample
 ```
+
+## Minimal UI
+
+After starting the API, open:
+
+- `http://127.0.0.1:8001/`
+
+Flow:
+- Click **Build / Rebuild Index** once (stores embeddings in Chroma)
+- Run searches and review the retrieved chunks + scores
 
 ## Chunking & retrieval parameters (what we chose + why)
 
@@ -93,7 +117,7 @@ Implemented in `src/solugen_assignment/api/retrieval.py` (`chunk_doc_paragraph_a
 Rationale:
 
 - **Paragraph boundaries preserve coherence** better than arbitrary fixed-size splits for news articles.
-- **400 tokens** is usually enough to capture a complete thought/claim + supporting sentences, while staying small for embeddings.
+- **400 tokens** is usually enough to capture a complete thought + supporting sentences, while staying small enough to embed cheaply.
 - **80-token overlap** reduces “boundary loss” when key facts span paragraphs.
 
 ### Retrieval parameters
@@ -102,13 +126,12 @@ Rationale:
 - **Similarity threshold**: optional `similarity_threshold` (cosine similarity). When set, results below the threshold are filtered out.
 - **Score definition**: stored vectors use cosine space; Chroma returns a distance roughly \(1 - \text{cosine\_similarity}\), so the API reports `score = 1 - distance`.
 
-## Minimal UI
+## Vector DB choice: why Chroma
 
-After starting the API, open:
-
-- `http://127.0.0.1:8000/`
-
-This page only performs retrieval and displays the returned context chunks (no LLM / no generation).
+I picked **Chroma** because it’s the quickest way to ship a small, local retrieval system end‑to‑end:
+- It runs locally (no external service setup), but still behaves like a “real” vector DB (collections, metadata, persistence).
+- It supports cosine similarity out of the box, and persists to disk so you can build once and reuse.
+- For a dataset this small, it’s more than enough and keeps the project simple and reproducible.
 
 ## Dataset: BBC News Summary (Kaggle)
 
@@ -119,9 +142,10 @@ We use the Kaggle dataset **`pariza/bbc-news-summary`** and curate it to meet th
 
 ### Why this dataset
 
-- **Realistic retrieval**: News articles contain enough context to make chunking, overlap, and top‑k meaningful (facts often span multiple sentences/paragraphs).
-- **Good query diversity**: The same entities/topics recur across articles, so semantic retrieval has to distinguish “similar but not the same” passages.
-- **Fits constraints + low cost**: We curate a small subset under 30k characters, keeping embedding cost far below the $1 limit.
+I wanted something that feels like a real retrieval problem, but still fits the “very small dataset” constraint:
+- News articles have enough structure (titles + paragraphs) to make chunking/overlap matter.
+- Entities repeat across articles (people, parties, topics), so semantic search has to separate “related” from “actually relevant”.
+- By curating to <30k characters total, embedding cost stays comfortably under the $1 limit.
 
 ### Expected user questions
 
@@ -140,7 +164,7 @@ We use the Kaggle dataset **`pariza/bbc-news-summary`** and curate it to meet th
 
 Example:
 
-- `data/raw/bbc-news-summary/`
+- `data/raw/BBC News Summary/`
 
 > `data/raw/` is gitignored on purpose.
 
@@ -209,5 +233,15 @@ Included documents (doc_id → title):
 ```bash
 python3 scripts/prepare_bbc_dataset.py --raw-root data/raw --out-dir data/processed --category politics --selection random --seed 42
 ```
+
+## Cost note
+
+This project embeds a very small amount of text (a curated subset under 30k characters, then chunked). With `text-embedding-3-small`, the total embedding cost is **well under $1** for typical runs.
+
+## Troubleshooting
+
+- **`POST /search` returns 409**: you need to run `POST /index/build` once first (or click the UI build button).
+- **`OPENAI_API_KEY is not set`**: copy `example.env` to `.env` and set a real key (or export it in your shell).
+- **No matches**: try lowering/clearing `similarity_threshold`, or increase `top_k`.
 
 
