@@ -135,7 +135,7 @@ I picked **Chroma** because it’s the quickest way to ship a small, local retri
 
 ## Dataset: BBC News Summary (Kaggle)
 
-We use the Kaggle dataset **`pariza/bbc-news-summary`** and curate it to meet the exam constraint:
+We use the Kaggle dataset **`pariza/bbc-news-summary`** ([Kaggle page](https://www.kaggle.com/datasets/pariza/bbc-news-summary)) and curate it to meet the exam constraint:
 
 - **Total text under 30,000 characters**
 - Single category (default: **politics**)
@@ -157,8 +157,11 @@ I wanted something that feels like a real retrieval problem, but still fits the 
 
 ### 1) Download + extract the dataset
 
-1. Download from Kaggle (manually) and unzip it.
-2. Put the extracted folder under:
+1. Open the dataset page on Kaggle:
+   - [BBC News Summary — `pariza/bbc-news-summary`](https://www.kaggle.com/datasets/pariza/bbc-news-summary)
+2. Click **Download** (you may need to sign in / create an account and accept the dataset rules).
+3. Unzip the downloaded file.
+4. Put the extracted folder under:
 
 - `data/raw/`
 
