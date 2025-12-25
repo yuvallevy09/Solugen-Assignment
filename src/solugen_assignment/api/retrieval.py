@@ -281,6 +281,13 @@ class ChromaChunkIndex:
             "message": "",
         }
 
+        # NOTE: We intentionally initialize the OpenAI client lazily.
+        # This keeps status/debug endpoints usable even before an API key is configured.
+        self._openai: OpenAI | None = None
+
+    def _get_openai(self) -> OpenAI:
+        if self._openai is not None:
+            return self._openai
         api_key = os.getenv("OPENAI_API_KEY", "")
         if not api_key:
             raise RuntimeError("OPENAI_API_KEY is not set.")
@@ -290,6 +297,7 @@ class ChromaChunkIndex:
             timeout=httpx.Timeout(30.0, connect=10.0),
         )
         self._openai = OpenAI(api_key=api_key, http_client=http_client, max_retries=2)
+        return self._openai
 
     def _progress_update(self, **fields: Any) -> None:
         now = time.time()
@@ -508,6 +516,7 @@ class ChromaChunkIndex:
         batch_size = 64
         total_batches = (len(texts) + batch_size - 1) // batch_size
         self._progress_update(batches_total=total_batches, batch_num=0, chunks_embedded=0)
+        openai = self._get_openai()
         for i in range(0, len(texts), batch_size):
             batch = texts[i : i + batch_size]
             batch_num = (i // batch_size) + 1
@@ -522,7 +531,7 @@ class ChromaChunkIndex:
                 message=f"embedding batch {batch_num}/{total_batches}",
             )
             try:
-                resp = self._openai.embeddings.create(model=self.embedding_model, input=batch)
+                resp = openai.embeddings.create(model=self.embedding_model, input=batch)
             except Exception as e:
                 self._progress_update(stage="error", error=str(e), done=True, message="embedding failed")
                 raise RuntimeError(
@@ -556,7 +565,7 @@ class ChromaChunkIndex:
 
         try:
             print("[search] embedding query", flush=True)
-            resp = self._openai.embeddings.create(model=self.embedding_model, input=[q])
+            resp = self._get_openai().embeddings.create(model=self.embedding_model, input=[q])
         except Exception as e:
             raise RuntimeError(
                 "OpenAI embeddings call failed for the query. Check OPENAI_API_KEY and network access."
