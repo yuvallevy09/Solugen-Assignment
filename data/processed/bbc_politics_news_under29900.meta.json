@@ -1,0 +1,19 @@
+{
+  "dataset": "kaggle/pariza/bbc-news-summary",
+  "raw_root": "data/raw/BBC News Summary",
+  "out_jsonl": "data/processed/bbc_politics_news_under29900.jsonl",
+  "category": "politics",
+  "kind": "news",
+  "files_scanned_total": 4450,
+  "files_in_category_total": 834,
+  "files_in_category_kind_total": 417,
+  "generated_at": "2025-12-25T11:28:47.993667+00:00",
+  "selection": "first",
+  "seed": 42,
+  "max_total_chars": 29900,
+  "max_docs": null,
+  "chosen_docs": 13,
+  "total_chars": 29815,
+  "skipped_empty": 0,
+  "skipped_over_cap": 404
+}

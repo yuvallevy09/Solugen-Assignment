@@ -1,0 +1,11 @@
+# The dataset preparation script (scripts/prepare_bbc_dataset.py) uses only the Python standard library.
+
+# Runtime deps (kept in sync with pyproject.toml for convenience)
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-dotenv>=1.0.1
+chromadb>=0.5.0
+openai>=1.0.0
+tiktoken>=0.7.0
+
+

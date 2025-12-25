@@ -1,0 +1,26 @@
+## Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+ENV/
+
+## Data
+data/raw/**
+!data/raw/.gitkeep
+
+## Local vector DB
+chroma_db/
+
+## Env
+.env
+
+## OS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+
